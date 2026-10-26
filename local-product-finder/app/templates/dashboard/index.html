@@ -1,0 +1,266 @@
+{% extends "base.html" %}
+
+{% block title %}Inventory Dashboard - {{ shop.name }}{% endblock %}
+
+{% block content %}
+<div class="container" style="padding-top: 2rem;">
+
+  <!-- Dashboard Store Header -->
+  <div style="background: #fff; border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 1.5rem 2rem; margin-bottom: 2rem; box-shadow: var(--shadow-sm); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+    <div>
+      <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;">
+        <span class="badge badge-demo">Store Management</span>
+        <span style="font-size: 0.8125rem; color: var(--text-muted);">{{ shop.category }}</span>
+      </div>
+      <h1 style="font-size: 1.75rem;">{{ shop.name }}</h1>
+      <p style="font-size: 0.875rem; color: var(--text-sub);">
+        📍 {{ shop.address }}, {{ shop.city }} &bull; 
+        <a href="{{ url_for('customer.shop_details', slug=shop.slug) }}" target="_blank" rel="noopener noreferrer">
+          View Public Customer Page &nearr;
+        </a>
+      </p>
+    </div>
+
+    <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+      <a href="{{ url_for('dashboard.settings') }}" class="btn btn-outline btn-sm">
+        ⚙️ Shop Settings & Hours
+      </a>
+      <form action="{{ url_for('dashboard.publish_all') }}" method="POST">
+        <button type="submit" class="btn btn-primary btn-sm" title="Confirm and make all inventory changes live to customers">
+          🚀 Confirm & Publish Changes
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Key Metrics Row -->
+  <div class="metrics-row">
+    <div class="metric-card">
+      <div class="metric-label">Total Products</div>
+      <div class="metric-value">{{ metrics.total_products }}</div>
+      <span style="font-size: 0.75rem; color: var(--text-muted);">In your shop catalog</span>
+    </div>
+
+    <div class="metric-card">
+      <div class="metric-label">In Stock</div>
+      <div class="metric-value" style="color: #166534;">{{ metrics.in_stock }}</div>
+      <span style="font-size: 0.75rem; color: var(--text-muted);">&gt; 5 units available</span>
+    </div>
+
+    <div class="metric-card">
+      <div class="metric-label">Low Stock Alerts</div>
+      <div class="metric-value" style="color: #b45309;">{{ metrics.low_stock }}</div>
+      <span style="font-size: 0.75rem; color: var(--text-muted);">1 - 5 units remaining</span>
+    </div>
+
+    <div class="metric-card">
+      <div class="metric-label">Out of Stock</div>
+      <div class="metric-value" style="color: #991b1b;">{{ metrics.out_of_stock }}</div>
+      <span style="font-size: 0.75rem; color: var(--text-muted);">Needs replenishment</span>
+    </div>
+
+    <div class="metric-card">
+      <div class="metric-label">Last Updated</div>
+      <div style="font-size: 1.25rem; font-weight: 700; color: var(--text-main); margin-top: 0.5rem;">
+        {{ metrics.last_updated }}
+      </div>
+      <span style="font-size: 0.75rem; color: var(--text-muted);">Inventory sync status</span>
+    </div>
+  </div>
+
+  <!-- Low Stock Alert Banner & Section (If applicable) -->
+  {% if low_stock_items %}
+    <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: var(--radius-lg); padding: 1.5rem; margin-bottom: 2rem;">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <span style="font-size: 1.25rem;">⚠️</span>
+          <h3 style="font-size: 1.125rem; color: #92400e; margin: 0;">Restock Attention Needed</h3>
+        </div>
+        <span style="font-size: 0.8125rem; color: #b45309; font-weight: 600;">
+          {{ low_stock_items | length }} items low or out of stock
+        </span>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1rem;">
+        {% for item in low_stock_items %}
+          <div style="background: #fff; border: 1px solid #fde68a; border-radius: var(--radius-md); padding: 0.875rem; display: flex; justify-content: space-between; align-items: center;">
+            <div>
+              <strong style="font-size: 0.875rem; display: block; color: var(--text-main);">{{ item.name }}</strong>
+              <span class="badge {{ item.stock_info.badge_class }}" style="font-size: 0.6875rem;">{{ item.stock_info.label }} ({{ item.stock_quantity }})</span>
+            </div>
+            <form action="{{ url_for('dashboard.update_stock', product_id=item.id) }}" method="POST" style="display: flex; gap: 0.35rem;">
+              <input type="hidden" name="delta" value="5">
+              <button type="submit" class="btn btn-secondary btn-sm" title="Add 5 units">
+                +5 Restock
+              </button>
+            </form>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  {% endif %}
+
+  <!-- Inventory Catalog Section -->
+  <div style="background: #fff; border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 1.5rem; box-shadow: var(--shadow-sm);">
+    
+    <!-- Controls Header -->
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.25rem;">
+      <div>
+        <h2 style="font-size: 1.25rem;">Store Inventory Catalog</h2>
+        <span style="font-size: 0.875rem; color: var(--text-sub);">
+          Manage pricing, stock levels, barcodes, and publishing state.
+        </span>
+      </div>
+
+      <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+        <a href="{{ url_for('dashboard.import_csv') }}" class="btn btn-outline btn-sm">
+          📥 Import CSV
+        </a>
+        <a href="{{ url_for('dashboard.export_csv') }}" class="btn btn-outline btn-sm">
+          📤 Export CSV
+        </a>
+        <a href="{{ url_for('dashboard.add_product') }}" class="btn btn-primary btn-sm">
+          + Add Product
+        </a>
+      </div>
+    </div>
+
+    <!-- Search & Filter Bar -->
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.25rem; background: var(--bg); padding: 0.75rem; border-radius: var(--radius-md);">
+      
+      <!-- Filter Tabs -->
+      <div style="display: flex; gap: 0.35rem; flex-wrap: wrap;">
+        <a href="{{ url_for('dashboard.index', status='all') }}" class="btn btn-sm {% if status_filter == 'all' %}btn-primary{% else %}btn-outline{% endif %}">
+          All ({{ metrics.total_products }})
+        </a>
+        <a href="{{ url_for('dashboard.index', status='in_stock') }}" class="btn btn-sm {% if status_filter == 'in_stock' %}btn-primary{% else %}btn-outline{% endif %}">
+          In Stock ({{ metrics.in_stock }})
+        </a>
+        <a href="{{ url_for('dashboard.index', status='low_stock') }}" class="btn btn-sm {% if status_filter == 'low_stock' %}btn-primary{% else %}btn-outline{% endif %}">
+          Low Stock ({{ metrics.low_stock }})
+        </a>
+        <a href="{{ url_for('dashboard.index', status='out_of_stock') }}" class="btn btn-sm {% if status_filter == 'out_of_stock' %}btn-primary{% else %}btn-outline{% endif %}">
+          Out of Stock ({{ metrics.out_of_stock }})
+        </a>
+      </div>
+
+      <!-- Quick live table filter -->
+      <div>
+        <input 
+          type="text" 
+          id="tableSearchInput" 
+          class="form-control" 
+          placeholder="Filter table rows..." 
+          style="padding: 0.35rem 0.75rem; font-size: 0.875rem; width: 220px;"
+        >
+      </div>
+    </div>
+
+    <!-- Inventory Table -->
+    {% if inventory | length == 0 %}
+      <div style="text-align: center; padding: 3rem 1rem; color: var(--text-sub);">
+        <p style="font-size: 1.0625rem; margin-bottom: 1rem;">No products in this view.</p>
+        <a href="{{ url_for('dashboard.add_product') }}" class="btn btn-primary btn-sm">+ Add Your First Product</a>
+        <a href="{{ url_for('dashboard.import_csv') }}" class="btn btn-outline btn-sm">Import from CSV</a>
+      </div>
+    {% else %}
+      <div style="overflow-x: auto;">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Product & Brand</th>
+              <th>Category / Size</th>
+              <th>Barcode</th>
+              <th>Price</th>
+              <th style="min-width: 140px;">Stock Qty</th>
+              <th>Status</th>
+              <th>Last Updated</th>
+              <th style="text-align: right;">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in inventory %}
+              <tr class="inventory-table-row" id="product-row-{{ item.id }}">
+                <td>
+                  <strong>{{ item.name }}</strong>
+                  {% if item.brand %}
+                    <span style="display: block; font-size: 0.75rem; color: var(--text-muted);">{{ item.brand }}</span>
+                  {% endif %}
+                </td>
+                <td>
+                  <span style="font-size: 0.8125rem;">{{ item.category }}</span>
+                  {% if item.size %}
+                    <span style="display: block; font-size: 0.75rem; color: var(--text-sub);">{{ item.size }}</span>
+                  {% endif %}
+                </td>
+                <td>
+                  {% if item.barcode %}
+                    <code style="font-size: 0.8125rem; background: #f1f5f9; padding: 0.15rem 0.35rem; border-radius: var(--radius-sm);">
+                      {{ item.barcode }}
+                    </code>
+                  {% else %}
+                    <span style="color: var(--text-muted); font-size: 0.75rem;">—</span>
+                  {% endif %}
+                </td>
+                <td>
+                  <strong style="font-size: 0.9375rem;">{{ item.price | currency }}</strong>
+                </td>
+                <td>
+                  <!-- Quick AJAX stock adjuster (+ / -) -->
+                  <div class="quick-stock-controls">
+                    <button 
+                      type="button" 
+                      class="stock-btn quick-stock-btn" 
+                      data-product-id="{{ item.id }}" 
+                      data-delta="-1" 
+                      title="Decrease by 1"
+                    >-</button>
+                    <span class="stock-qty-display" style="font-weight: 700; min-width: 2rem; text-align: center;">
+                      {{ item.stock_quantity }}
+                    </span>
+                    <button 
+                      type="button" 
+                      class="stock-btn quick-stock-btn" 
+                      data-product-id="{{ item.id }}" 
+                      data-delta="1" 
+                      title="Increase by 1"
+                    >+</button>
+                  </div>
+                </td>
+                <td>
+                  <span class="badge {{ item.stock_info.badge_class }} stock-badge-display">
+                    {{ item.stock_info.label }}
+                  </span>
+                </td>
+                <td>
+                  <span class="stock-updated-display" style="font-size: 0.8125rem; color: var(--text-muted);">
+                    {{ item.relative_updated }}
+                  </span>
+                </td>
+                <td style="text-align: right;">
+                  <div style="display: inline-flex; gap: 0.35rem;">
+                    <a href="{{ url_for('dashboard.edit_product', product_id=item.id) }}" class="btn btn-outline btn-sm" title="Edit details">
+                      Edit
+                    </a>
+                    <form action="{{ url_for('dashboard.delete_product', product_id=item.id) }}" method="POST" class="delete-product-form" data-product-name="{{ item.name }}" style="display: inline;">
+                      <button type="submit" class="btn btn-danger btn-sm" title="Delete product">
+                        &times;
+                      </button>
+                    </form>
+                  </div>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% endif %}
+
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block title %}Server Error - {{ APP_NAME }}{% endblock %}
+
+{% block content %}
+<div class="container" style="max-width: 600px; padding: 4rem 1rem; text-align: center;">
+  <div style="font-size: 3.5rem; margin-bottom: 1rem;">⚠️</div>
+  <h1 style="font-size: 2rem; margin-bottom: 0.75rem;">Something went wrong</h1>
+  <p style="font-size: 1rem; color: var(--text-sub); margin-bottom: 1.5rem;">
+    {{ message or "An unexpected server error occurred. Please try again or return to the home page." }}
+  </p>
+  <div style="display: flex; justify-content: center; gap: 1rem;">
+    <a href="{{ url_for('customer.home') }}" class="btn btn-primary">Return Home</a>
+  </div>
+</div>
+{% endblock %}

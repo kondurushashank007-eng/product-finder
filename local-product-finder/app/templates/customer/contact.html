@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block title %}Contact & Support - {{ APP_NAME }}{% endblock %}
+
+{% block content %}
+<div class="container" style="max-width: 720px; padding-top: 3rem; padding-bottom: 3rem;">
+  
+  <div style="background: #fff; border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 2.5rem; box-shadow: var(--shadow-sm);">
+    <h1 style="font-size: 2rem; margin-bottom: 0.5rem;">Contact Support & Merchant Onboarding</h1>
+    <p style="font-size: 1rem; color: var(--text-sub); margin-bottom: 2rem;">
+      Have a question about using the platform, need help importing your shop's inventory, or want to suggest a new neighborhood store? Send us a message below.
+    </p>
+
+    <form onsubmit="event.preventDefault(); alert('Thank you for contacting Local Product Finder! In this demo environment, your inquiry has been simulated and recorded.'); this.reset();">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+        <div class="form-group">
+          <label class="form-label" for="contactName">Your Name</label>
+          <input type="text" id="contactName" class="form-control" placeholder="Jane Doe" required>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="contactEmail">Email Address</label>
+          <input type="email" id="contactEmail" class="form-control" placeholder="jane@example.com" required>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="contactTopic">Inquiry Topic</label>
+        <select id="contactTopic" class="form-select">
+          <option value="customer">Shopper Question / Feedback</option>
+          <option value="shop_owner">Shop Owner Onboarding & Support</option>
+          <option value="data">Report Inaccurate Stock / Stale Data</option>
+          <option value="partner">Partnership & Local Business Associations</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="contactMessage">Message</label>
+        <textarea id="contactMessage" class="form-control" rows="5" placeholder="How can we help you?" required></textarea>
+      </div>
+
+      <button type="submit" class="btn btn-primary btn-lg" style="width: 100%;">
+        Send Message
+      </button>
+    </form>
+
+    <div style="margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--border); font-size: 0.875rem; color: var(--text-muted); display: flex; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem;">
+      <span>📧 support@localproductfinder.demo</span>
+      <span>📞 (415) 555-0100</span>
+      <span>⏰ Mon - Fri, 9am - 5pm PT</span>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

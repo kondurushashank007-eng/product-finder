@@ -1,0 +1,293 @@
+{% extends "base.html" %}
+
+{% block title %}Search Results - {{ APP_NAME }}{% endblock %}
+
+{% block content %}
+<div class="container" style="padding-top: 2rem;">
+
+  <!-- Search Bar Header -->
+  <div style="background: #fff; border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 1.25rem; margin-bottom: 2rem; box-shadow: var(--shadow-sm);">
+    <form action="{{ url_for('customer.search') }}" method="GET" class="search-form-row">
+      <input type="hidden" name="lat" value="{{ user_lat }}">
+      <input type="hidden" name="lng" value="{{ user_lng }}">
+      <input type="hidden" name="location_name" value="{{ location_name }}">
+      <input type="hidden" name="sort_by" value="{{ sort_by }}">
+
+      <input 
+        type="text" 
+        name="q" 
+        value="{{ query }}" 
+        class="search-input-field" 
+        placeholder="Search product name, brand, category, or barcode..."
+        aria-label="Search term"
+      >
+      <button type="submit" class="btn btn-primary">
+        Search
+      </button>
+    </form>
+  </div>
+
+  <!-- Search Results & Filters Layout -->
+  <div class="search-layout">
+    
+    <!-- Sidebar Filters -->
+    <aside class="filter-sidebar">
+      <div class="filter-title">
+        <span>Filters</span>
+        <button type="button" class="btn btn-outline btn-sm" id="clearFiltersBtn">
+          Clear All
+        </button>
+      </div>
+
+      <form action="{{ url_for('customer.search') }}" method="GET" id="filterForm">
+        <input type="hidden" name="q" value="{{ query }}">
+        <input type="hidden" name="lat" value="{{ user_lat }}">
+        <input type="hidden" name="lng" value="{{ user_lng }}">
+        <input type="hidden" name="location_name" value="{{ location_name }}">
+        <input type="hidden" name="sort_by" value="{{ sort_by }}">
+
+        <!-- Distance Radius Filter -->
+        <div class="filter-group">
+          <div class="filter-heading">Max Distance</div>
+          <select name="radius" class="form-select" onchange="this.form.submit()">
+            <option value="" {% if not radius %}selected{% endif %}>Any Distance</option>
+            <option value="2" {% if radius == 2.0 %}selected{% endif %}>Within 2 km (Walking)</option>
+            <option value="5" {% if radius == 5.0 %}selected{% endif %}>Within 5 km (Neighborhood)</option>
+            <option value="10" {% if radius == 10.0 %}selected{% endif %}>Within 10 km (City)</option>
+            <option value="25" {% if radius == 25.0 %}selected{% endif %}>Within 25 km (Metro Area)</option>
+          </select>
+        </div>
+
+        <!-- In-Stock Only Filter -->
+        <div class="filter-group">
+          <div class="filter-heading">Availability</div>
+          <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; cursor: pointer;">
+            <input 
+              type="checkbox" 
+              name="in_stock" 
+              value="1" 
+              {% if in_stock_only %}checked{% endif %}
+              onchange="this.form.submit()"
+            >
+            <span>In-Stock Only (exclude 0 stock)</span>
+          </label>
+        </div>
+
+        <!-- Category Filter -->
+        <div class="filter-group">
+          <div class="filter-heading">Category</div>
+          <select name="category" class="form-select" onchange="this.form.submit()">
+            <option value="">All Categories</option>
+            {% for cat in all_categories %}
+              <option value="{{ cat }}" {% if category == cat %}selected{% endif %}>{{ cat }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <!-- Price Range Filter -->
+        <div class="filter-group">
+          <div class="filter-heading">Price Range ({{ CURRENCY_SYMBOL }})</div>
+          <div style="display: flex; gap: 0.5rem; align-items: center;">
+            <input 
+              type="number" 
+              step="0.5" 
+              name="min_price" 
+              class="form-control" 
+              placeholder="Min" 
+              value="{{ min_price if min_price is not none else '' }}"
+            >
+            <span>-</span>
+            <input 
+              type="number" 
+              step="0.5" 
+              name="max_price" 
+              class="form-control" 
+              placeholder="Max" 
+              value="{{ max_price if max_price is not none else '' }}"
+            >
+          </div>
+          <button type="submit" class="btn btn-secondary btn-sm" style="width: 100%; margin-top: 0.5rem;">
+            Apply Price
+          </button>
+        </div>
+
+        <!-- Brand Filter -->
+        <div class="filter-group">
+          <div class="filter-heading">Brand</div>
+          <div style="max-height: 180px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.35rem;">
+            {% for b in all_brands %}
+              <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.8125rem; cursor: pointer;">
+                <input 
+                  type="radio" 
+                  name="brand" 
+                  value="{{ b }}" 
+                  {% if brand == b %}checked{% endif %}
+                  onchange="this.form.submit()"
+                >
+                <span>{{ b }}</span>
+              </label>
+            {% endfor %}
+          </div>
+        </div>
+
+      </form>
+    </aside>
+
+    <!-- Results Area -->
+    <main>
+      <!-- Results Bar -->
+      <div class="results-header">
+        <div class="results-count">
+          Found <strong>{{ total_count }}</strong> product{{ 's' if total_count != 1 else '' }}
+          {% if query %} matching "<strong>{{ query }}</strong>"{% endif %}
+          {% if location_name %} near <em>{{ location_name }}</em>{% endif %}
+        </div>
+
+        <!-- Sort Control -->
+        <div class="sort-select-wrapper">
+          <label for="sortSelect" style="font-size: 0.875rem; color: var(--text-sub); white-space: nowrap;">Sort by:</label>
+          <select id="sortSelect" class="form-select" style="width: auto; padding: 0.4rem 0.75rem; font-size: 0.875rem;">
+            <option value="distance" {% if sort_by == 'distance' %}selected{% endif %}>Nearest Distance</option>
+            <option value="price_asc" {% if sort_by == 'price_asc' %}selected{% endif %}>Lowest Price</option>
+            <option value="price_desc" {% if sort_by == 'price_desc' %}selected{% endif %}>Highest Price</option>
+            <option value="stock" {% if sort_by == 'stock' %}selected{% endif %}>Highest Stock</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Zero Results Empty State -->
+      {% if total_count == 0 %}
+        <div style="background: #fff; border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 3rem 2rem; text-align: center;">
+          <div style="font-size: 3rem; margin-bottom: 1rem;">🔍</div>
+          <h3 style="font-size: 1.375rem; margin-bottom: 0.5rem;">No matching products found nearby</h3>
+          <p style="max-width: 500px; margin: 0 auto 1.5rem; font-size: 0.9375rem;">
+            We couldn't find any products matching your specific filters and location.
+          </p>
+
+          {% if suggestions %}
+            <div style="background: #f8fafc; border: 1px solid var(--border); border-radius: var(--radius-md); padding: 1.25rem; max-width: 550px; margin: 0 auto 1.5rem; text-align: left;">
+              <strong style="font-size: 0.875rem; color: var(--text-main); display: block; margin-bottom: 0.5rem;">Helpful suggestions to find what you need:</strong>
+              <ul style="padding-left: 1.25rem; font-size: 0.875rem; color: var(--text-sub);">
+                {% for sug in suggestions %}
+                  <li style="margin-bottom: 0.35rem;">{{ sug }}</li>
+                {% endfor %}
+              </ul>
+            </div>
+          {% endif %}
+
+          <div style="display: flex; justify-content: center; gap: 0.75rem; flex-wrap: wrap;">
+            <a href="{{ url_for('customer.search') }}" class="btn btn-primary">
+              View All Products
+            </a>
+            <button type="button" class="btn btn-outline" id="broadenSearchBtn" onclick="document.getElementById('clearFiltersBtn').click()">
+              Reset Filters
+            </button>
+          </div>
+        </div>
+      {% else %}
+
+        <!-- Product Cards Grid -->
+        <div class="product-grid">
+          {% for item in results %}
+            <div class="product-card">
+              <div class="product-card-header">
+                <div>
+                  {% if item.brand %}
+                    <span class="product-brand">{{ item.brand }}</span>
+                  {% endif %}
+                  <h3 class="product-title">{{ item.name }}</h3>
+                </div>
+                {% if item.is_demo %}
+                  <span class="badge badge-demo" style="font-size: 0.6875rem;">Demo</span>
+                {% endif %}
+              </div>
+
+              {% if item.size %}
+                <div>
+                  <span class="product-size">{{ item.size }}</span>
+                </div>
+              {% endif %}
+
+              <!-- Stock Status Badge & Count -->
+              <div style="margin-bottom: 0.75rem; display: flex; align-items: center; justify-content: space-between;">
+                <span class="badge {{ item.stock_info.badge_class }}">
+                  {{ item.stock_info.label }}
+                </span>
+                <span style="font-size: 0.8125rem; color: var(--text-sub); font-weight: 600;">
+                  {% if item.stock_quantity > 0 %}
+                    {{ item.stock_quantity }} available
+                  {% else %}
+                    0 available
+                  {% endif %}
+                </span>
+              </div>
+
+              <!-- Price Row -->
+              <div class="product-price-row">
+                <span class="product-price">{{ item.price | currency }}</span>
+                {% if item.distance_text %}
+                  <span style="font-size: 0.8125rem; font-weight: 700; color: var(--primary);">
+                    📍 {{ item.distance_text }}
+                  </span>
+                {% endif %}
+              </div>
+
+              <!-- Shop Box Info -->
+              <div class="product-shop-box">
+                <a href="{{ url_for('customer.shop_details', slug=item.shop_slug) }}" class="product-shop-name">
+                  🏪 {{ item.shop_name }} &rarr;
+                </a>
+                <div class="product-shop-meta">
+                  <span>{{ item.shop_address }}</span>
+                  {% if item.shop_hours_info.is_open %}
+                    <span style="color: #15803d; font-weight: 600;">Open</span>
+                  {% else %}
+                    <span style="color: #b91c1c;">Closed</span>
+                  {% endif %}
+                </div>
+              </div>
+
+              <!-- Trust & Last Updated Timestamp -->
+              <div class="product-updated-hint">
+                <span>🕒 Updated {{ item.relative_updated }}</span>
+                {% if item.is_stale %}
+                  <span class="stale-warning" title="Inventory was updated over 14 days ago. Call shop to verify.">⚠️ Verify</span>
+                {% endif %}
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+
+        <!-- Pagination Controls -->
+        {% if total_pages > 1 %}
+          <div class="pagination">
+            {% if has_prev %}
+              <a href="{{ url_for('customer.search', q=query, category=category, brand=brand, radius=radius, min_price=min_price, max_price=max_price, in_stock='1' if in_stock_only else '', sort_by=sort_by, lat=user_lat, lng=user_lng, location_name=location_name, page=page-1) }}" class="page-item" aria-label="Previous page">
+                &larr; Prev
+              </a>
+            {% endif %}
+
+            {% for p in range(1, total_pages + 1) %}
+              <a href="{{ url_for('customer.search', q=query, category=category, brand=brand, radius=radius, min_price=min_price, max_price=max_price, in_stock='1' if in_stock_only else '', sort_by=sort_by, lat=user_lat, lng=user_lng, location_name=location_name, page=p) }}" class="page-item {% if p == page %}active{% endif %}">
+                {{ p }}
+              </a>
+            {% endfor %}
+
+            {% if has_next %}
+              <a href="{{ url_for('customer.search', q=query, category=category, brand=brand, radius=radius, min_price=min_price, max_price=max_price, in_stock='1' if in_stock_only else '', sort_by=sort_by, lat=user_lat, lng=user_lng, location_name=location_name, page=page+1) }}" class="page-item" aria-label="Next page">
+                Next &rarr;
+              </a>
+            {% endif %}
+          </div>
+        {% endif %}
+
+      {% endif %}
+    </main>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/search.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,262 @@
+{% extends "base.html" %}
+
+{% block title %}{{ shop.name }} - Local Store & In-Stock Products{% endblock %}
+
+{% block content %}
+<div class="container" style="padding-top: 2rem;">
+
+  <!-- Shop Header Banner -->
+  <section class="shop-header-banner">
+    <div class="shop-header-top">
+      <div>
+        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; flex-wrap: wrap;">
+          <span class="badge badge-demo">Verified Local Store</span>
+          {% if shop.hours_info.is_open %}
+            <span class="badge badge-open">Open Now</span>
+          {% else %}
+            <span class="badge badge-closed">Closed</span>
+          {% endif %}
+          {% if shop.distance_text %}
+            <span class="badge badge-secondary">📍 {{ shop.distance_text }}</span>
+          {% endif %}
+        </div>
+        <h1 style="font-size: 2rem; margin-bottom: 0.5rem;">{{ shop.name }}</h1>
+        <p style="font-size: 1rem; color: var(--text-sub); max-width: 750px;">
+          {{ shop.description }}
+        </p>
+      </div>
+
+      <div>
+        <span class="badge badge-secondary" style="font-size: 0.8125rem;">
+          {{ shop.category }}
+        </span>
+      </div>
+    </div>
+
+    <!-- Contact & Hours Quick Meta -->
+    <div class="shop-info-grid">
+      <div class="shop-info-item">
+        <div class="shop-info-icon">📍</div>
+        <div>
+          <div style="font-weight: 700; font-size: 0.875rem;">Address</div>
+          <div style="font-size: 0.875rem; color: var(--text-sub);">
+            {{ shop.address }}<br>{{ shop.city }}{% if shop.postal_code %}, {{ shop.postal_code }}{% endif %}
+          </div>
+        </div>
+      </div>
+
+      <div class="shop-info-item">
+        <div class="shop-info-icon">🕒</div>
+        <div>
+          <div style="font-weight: 700; font-size: 0.875rem;">Hours Today</div>
+          <div style="font-size: 0.875rem; color: var(--text-sub);">
+            {{ shop.hours_info.details }}
+          </div>
+        </div>
+      </div>
+
+      <div class="shop-info-item">
+        <div class="shop-info-icon">📞</div>
+        <div>
+          <div style="font-weight: 700; font-size: 0.875rem;">Phone</div>
+          <div style="font-size: 0.875rem; color: var(--text-sub);">
+            {% if shop.phone %}
+              <a href="tel:{{ shop.phone }}">{{ shop.phone }}</a>
+            {% else %}
+              Not provided
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <div class="shop-info-item">
+        <div class="shop-info-icon">🌐</div>
+        <div>
+          <div style="font-weight: 700; font-size: 0.875rem;">Website / Inquiries</div>
+          <div style="font-size: 0.875rem; color: var(--text-sub);">
+            {% if shop.website %}
+              <a href="{{ shop.website }}" target="_blank" rel="noopener noreferrer">Visit Website &rarr;</a>
+            {% elif shop.email %}
+              <a href="mailto:{{ shop.email }}">{{ shop.email }}</a>
+            {% else %}
+              In-person retail
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Interactive Coordinate Map Preview -->
+    <div class="shop-map-container" id="shopMap"></div>
+
+  </section>
+
+  <!-- Two Column Layout: Weekly Hours & In-Store Inventory -->
+  <div style="display: grid; grid-template-columns: 300px 1fr; gap: 2rem; align-items: start;">
+    
+    <!-- Left Column: Weekly Hours Schedule -->
+    <aside style="background: #fff; border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 1.5rem;">
+      <h3 style="font-size: 1.125rem; margin-bottom: 1rem;">Weekly Hours</h3>
+      
+      {% set days_map = [
+        ('mon', 'Monday'),
+        ('tue', 'Tuesday'),
+        ('wed', 'Wednesday'),
+        ('thu', 'Thursday'),
+        ('fri', 'Friday'),
+        ('sat', 'Saturday'),
+        ('sun', 'Sunday')
+      ] %}
+
+      <table style="width: 100%; font-size: 0.875rem; border-collapse: collapse;">
+        {% for day_key, day_name in days_map %}
+          {% set h = schedule_dict.get(day_key, {}) %}
+          <tr style="border-bottom: 1px solid var(--border);">
+            <td style="padding: 0.5rem 0; font-weight: 600;">{{ day_name }}</td>
+            <td style="padding: 0.5rem 0; text-align: right; color: var(--text-sub);">
+              {% if h.closed %}
+                <span style="color: var(--danger-text);">Closed</span>
+              {% elif h.open and h.close %}
+                {{ h.open | time12 }} - {{ h.close | time12 }}
+              {% else %}
+                Hours unavailable
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </table>
+
+      <div style="margin-top: 1.5rem; background: var(--bg); padding: 0.75rem; border-radius: var(--radius-sm); font-size: 0.8125rem; color: var(--text-muted);">
+        💡 Store hours are updated by the merchant. Call ahead on public holidays.
+      </div>
+    </aside>
+
+    <!-- Right Column: Products in this Shop -->
+    <main>
+      <div style="background: #fff; border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 1.5rem; margin-bottom: 1.5rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1rem;">
+          <div>
+            <h2 style="font-size: 1.375rem;">Products at this Store</h2>
+            <span style="font-size: 0.875rem; color: var(--text-sub);">
+              Showing {{ products | length }} item{{ 's' if products|length != 1 else '' }} available in stock
+            </span>
+          </div>
+
+          <!-- In-Store Search Bar -->
+          <form action="{{ url_for('customer.shop_details', slug=shop.slug) }}" method="GET" style="display: flex; gap: 0.5rem;">
+            {% if selected_category %}
+              <input type="hidden" name="cat" value="{{ selected_category }}">
+            {% endif %}
+            <input 
+              type="text" 
+              name="q" 
+              value="{{ item_search }}" 
+              class="form-control" 
+              placeholder="Search in this shop..." 
+              style="max-width: 220px;"
+            >
+            <button type="submit" class="btn btn-secondary btn-sm">Search</button>
+          </form>
+        </div>
+
+        <!-- In-Store Category Filter Tabs -->
+        {% if shop_categories %}
+          <div style="display: flex; gap: 0.5rem; overflow-x: auto; padding-bottom: 0.5rem;">
+            <a 
+              href="{{ url_for('customer.shop_details', slug=shop.slug, q=item_search) }}" 
+              class="btn btn-sm {% if not selected_category %}btn-primary{% else %}btn-outline{% endif %}"
+            >
+              All ({{ products|length }})
+            </a>
+            {% for cat in shop_categories %}
+              <a 
+                href="{{ url_for('customer.shop_details', slug=shop.slug, cat=cat, q=item_search) }}" 
+                class="btn btn-sm {% if selected_category == cat %}btn-primary{% else %}btn-outline{% endif %}"
+              >
+                {{ cat }}
+              </a>
+            {% endfor %}
+          </div>
+        {% endif %}
+      </div>
+
+      <!-- Inventory Items List -->
+      {% if products | length == 0 %}
+        <div style="background: #fff; border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 2.5rem; text-align: center;">
+          <p style="font-size: 1rem; color: var(--text-sub); margin-bottom: 1rem;">
+            No items found matching "{{ item_search }}".
+          </p>
+          <a href="{{ url_for('customer.shop_details', slug=shop.slug) }}" class="btn btn-outline btn-sm">
+            View All Store Items
+          </a>
+        </div>
+      {% else %}
+        <div class="product-grid">
+          {% for item in products %}
+            <div class="product-card">
+              <div class="product-card-header">
+                <div>
+                  {% if item.brand %}
+                    <span class="product-brand">{{ item.brand }}</span>
+                  {% endif %}
+                  <h3 class="product-title">{{ item.name }}</h3>
+                </div>
+                {% if item.is_demo %}
+                  <span class="badge badge-demo" style="font-size: 0.6875rem;">Demo</span>
+                {% endif %}
+              </div>
+
+              {% if item.size %}
+                <div>
+                  <span class="product-size">{{ item.size }}</span>
+                </div>
+              {% endif %}
+
+              {% if item.barcode %}
+                <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.5rem;">
+                  Barcode: <code>{{ item.barcode }}</code>
+                </div>
+              {% endif %}
+
+              <div style="margin-bottom: 0.75rem; display: flex; align-items: center; justify-content: space-between;">
+                <span class="badge {{ item.stock_info.badge_class }}">
+                  {{ item.stock_info.label }}
+                </span>
+                <span style="font-size: 0.8125rem; font-weight: 600; color: var(--text-sub);">
+                  {{ item.stock_quantity }} units in store
+                </span>
+              </div>
+
+              <div class="product-price-row">
+                <span class="product-price">{{ item.price | currency }}</span>
+                <span style="font-size: 0.75rem; color: var(--text-muted);">
+                  🕒 {{ item.relative_updated }}
+                </span>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+
+    </main>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/map.js') }}"></script>
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    renderShopMap(
+      "shopMap",
+      {{ shop.latitude }},
+      {{ shop.longitude }},
+      "{{ shop.name | escape }}",
+      "{{ shop.address | escape }}, {{ shop.city | escape }}",
+      {{ user_lat or shop.latitude }},
+      {{ user_lng or shop.longitude }}
+    );
+  });
+</script>
+{% endblock %}

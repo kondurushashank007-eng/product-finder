@@ -1,0 +1,212 @@
+{% extends "base.html" %}
+
+{% block title %}Import Inventory CSV - {{ shop.name }}{% endblock %}
+
+{% block content %}
+<div class="container" style="max-width: 900px; padding-top: 2.5rem; padding-bottom: 3rem;">
+
+  <div style="background: #fff; border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 2.25rem; box-shadow: var(--shadow-sm);">
+    
+    <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border);">
+      <div>
+        <h1 style="font-size: 1.625rem; margin-bottom: 0.25rem;">Import Products via CSV</h1>
+        <span style="font-size: 0.875rem; color: var(--text-sub);">
+          Store: <strong>{{ shop.name }}</strong>
+        </span>
+      </div>
+      <a href="{{ url_for('dashboard.index') }}" class="btn btn-outline btn-sm">
+        &larr; Back to Inventory
+      </a>
+    </div>
+
+    {% if preview_mode %}
+      
+      <!-- PREVIEW & VALIDATION SCREEN -->
+      <div style="margin-bottom: 2rem;">
+        <div style="display: flex; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap;">
+          <div style="background: var(--bg); padding: 1rem; border-radius: var(--radius-md); border: 1px solid var(--border); flex: 1;">
+            <div style="font-size: 0.8125rem; color: var(--text-muted); font-weight: 600;">TOTAL ROWS PARSED</div>
+            <div style="font-size: 1.75rem; font-weight: 800;">{{ total_rows }}</div>
+          </div>
+          <div style="background: var(--success-bg); padding: 1rem; border-radius: var(--radius-md); border: 1px solid var(--success-border); flex: 1;">
+            <div style="font-size: 0.8125rem; color: var(--success-text); font-weight: 600;">READY TO IMPORT</div>
+            <div style="font-size: 1.75rem; font-weight: 800; color: var(--success-text);">{{ valid_count }}</div>
+          </div>
+          {% if invalid_count > 0 %}
+            <div style="background: var(--danger-bg); padding: 1rem; border-radius: var(--radius-md); border: 1px solid var(--danger-border); flex: 1;">
+              <div style="font-size: 0.8125rem; color: var(--danger-text); font-weight: 600;">INVALID ROWS (SKIPPED)</div>
+              <div style="font-size: 1.75rem; font-weight: 800; color: var(--danger-text);">{{ invalid_count }}</div>
+            </div>
+          {% endif %}
+        </div>
+
+        <!-- Invalid Rows Notice (if any) -->
+        {% if invalid_count > 0 %}
+          <div style="background: #fff1f2; border: 1px solid #fecdd3; border-radius: var(--radius-md); padding: 1rem; margin-bottom: 1.5rem;">
+            <h4 style="color: #9f1239; margin-bottom: 0.5rem; font-size: 0.9375rem;">⚠️ The following rows contain validation issues:</h4>
+            <ul style="padding-left: 1.25rem; font-size: 0.8125rem; color: #881337;">
+              {% for inv in invalid_rows %}
+                <li>
+                  Row #{{ inv.row_number }} ({{ inv.data.name or 'Unnamed product' }}): {{ inv.errors | join(', ') }}
+                </li>
+              {% endfor %}
+            </ul>
+          </div>
+        {% endif %}
+
+        <!-- Valid Rows Preview Table -->
+        <h3 style="font-size: 1.125rem; margin-bottom: 0.75rem;">Preview of Products Ready for Import ({{ valid_count }}):</h3>
+        <div style="max-height: 320px; overflow-y: auto; border: 1px solid var(--border); border-radius: var(--radius-md); margin-bottom: 1.5rem;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Product Name</th>
+                <th>Brand</th>
+                <th>Category</th>
+                <th>Size</th>
+                <th>Barcode</th>
+                <th>Price</th>
+                <th>Stock</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in valid_rows %}
+                <tr>
+                  <td><strong>{{ row.name }}</strong></td>
+                  <td>{{ row.brand or '—' }}</td>
+                  <td>{{ row.category }}</td>
+                  <td>{{ row.size or '—' }}</td>
+                  <td><code>{{ row.barcode or '—' }}</code></td>
+                  <td><strong>{{ row.price | currency }}</strong></td>
+                  <td>{{ row.stock_quantity }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Confirmation Form -->
+        <form method="POST">
+          <input type="hidden" name="confirm_import" value="1">
+          <input type="hidden" name="rows_json" value="{{ rows_json | escape }}">
+
+          <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border); padding-top: 1.25rem;">
+            <a href="{{ url_for('dashboard.import_csv') }}" class="btn btn-outline">
+              Upload Different File
+            </a>
+            <button type="submit" class="btn btn-primary btn-lg" {% if valid_count == 0 %}disabled{% endif %}>
+              Confirm & Import {{ valid_count }} Products &rarr;
+            </button>
+          </div>
+        </form>
+
+      </div>
+
+    {% else %}
+
+      <!-- INITIAL FILE UPLOAD SCREEN -->
+      <div style="margin-bottom: 2rem;">
+        
+        <p style="font-size: 0.9375rem; color: var(--text-sub); margin-bottom: 1.5rem;">
+          Quickly bulk import your entire inventory from a spreadsheet or Point of Sale (POS) export.
+        </p>
+
+        <!-- Template Download Box -->
+        <div style="background: #f8fafc; border: 1px solid var(--border); border-radius: var(--radius-md); padding: 1.25rem; margin-bottom: 1.75rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+          <div>
+            <strong style="display: block; font-size: 0.9375rem; color: var(--text-main);">Need a formatted spreadsheet template?</strong>
+            <span style="font-size: 0.8125rem; color: var(--text-muted);">
+              Download our sample CSV with predefined headers and example data.
+            </span>
+          </div>
+          <a href="{{ url_for('dashboard.download_sample_csv') }}" class="btn btn-secondary btn-sm">
+            📥 Download Sample CSV
+          </a>
+        </div>
+
+        <!-- Upload Form -->
+        <form method="POST" enctype="multipart/form-data">
+          <div class="form-group" style="border: 2px dashed var(--border); padding: 2.5rem 1.5rem; text-align: center; border-radius: var(--radius-lg); background: #fdfdfd; margin-bottom: 1.5rem;">
+            <div style="font-size: 2.5rem; margin-bottom: 0.75rem;">📄</div>
+            <label class="form-label" for="csvFileInput" style="font-size: 1.0625rem; cursor: pointer;">
+              Choose your CSV file to preview & validate
+            </label>
+            <input 
+              type="file" 
+              id="csvFileInput" 
+              name="csv_file" 
+              accept=".csv" 
+              class="form-control" 
+              style="max-width: 320px; margin: 0.75rem auto;" 
+              required
+            >
+            <span class="form-text">Supported format: Standard Comma-Separated Values (.csv) UTF-8</span>
+          </div>
+
+          <!-- Column Specification Reference -->
+          <h4 style="font-size: 0.9375rem; margin-bottom: 0.75rem;">Required and Optional Columns:</h4>
+          <table class="data-table" style="font-size: 0.8125rem; margin-bottom: 1.5rem;">
+            <thead>
+              <tr>
+                <th>Column Header</th>
+                <th>Requirement</th>
+                <th>Example Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>name</code></td>
+                <td><span class="badge badge-success">Required</span></td>
+                <td>Organic Whole Milk</td>
+              </tr>
+              <tr>
+                <td><code>category</code></td>
+                <td><span class="badge badge-success">Required</span></td>
+                <td>Dairy</td>
+              </tr>
+              <tr>
+                <td><code>price</code></td>
+                <td><span class="badge badge-success">Required</span></td>
+                <td>4.49</td>
+              </tr>
+              <tr>
+                <td><code>stock_quantity</code></td>
+                <td><span class="badge badge-success">Required</span></td>
+                <td>15</td>
+              </tr>
+              <tr>
+                <td><code>brand</code></td>
+                <td><span class="badge badge-secondary">Optional</span></td>
+                <td>Organic Valley</td>
+              </tr>
+              <tr>
+                <td><code>size</code></td>
+                <td><span class="badge badge-secondary">Optional</span></td>
+                <td>1L</td>
+              </tr>
+              <tr>
+                <td><code>barcode</code></td>
+                <td><span class="badge badge-secondary">Optional</span></td>
+                <td>7350053850011</td>
+              </tr>
+              <tr>
+                <td><code>description</code></td>
+                <td><span class="badge badge-secondary">Optional</span></td>
+                <td>Fresh pasteurized milk</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <button type="submit" class="btn btn-primary btn-lg" style="width: 100%;">
+            Upload & Preview CSV &rarr;
+          </button>
+        </form>
+
+      </div>
+
+    {% endif %}
+
+  </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,230 @@
+{% extends "base.html" %}
+
+{% block title %}Local Product Finder - Find In-Store Products Near You{% endblock %}
+
+{% block content %}
+
+<!-- Hero Banner & Search Area -->
+<section class="hero-section">
+  <div class="container">
+    <h1 class="hero-title">Find Products in Stock at Local Shops</h1>
+    <p class="hero-subtitle">
+      Compare live prices and verified in-store availability across neighborhood stores. No account required.
+    </p>
+
+    <div class="search-box-wrapper">
+      <!-- Search Tabs -->
+      <div class="search-tabs">
+        <button type="button" class="search-tab active" id="tabStandard">
+          🔍 Standard Search
+        </button>
+        <button type="button" class="search-tab" id="tabAi">
+          ✨ AI Natural Language Search
+        </button>
+      </div>
+
+      <!-- 1. Standard Keyword Search Form -->
+      <form action="{{ url_for('customer.search') }}" method="GET" id="standardSearchForm">
+        <input type="hidden" name="lat" value="{{ user_lat }}">
+        <input type="hidden" name="lng" value="{{ user_lng }}">
+        <input type="hidden" name="location_name" value="{{ location_name }}">
+
+        <div class="search-form-row">
+          <input 
+            type="text" 
+            name="q" 
+            id="barcodeInput"
+            class="search-input-field" 
+            placeholder="Search by product name, brand, category, or barcode..." 
+            aria-label="Search products"
+            autofocus
+          >
+          <button type="button" class="btn btn-secondary btn-sm" id="barcodeSimulateBtn" title="Test Barcode Search">
+            📷 Scan Barcode
+          </button>
+          <button type="submit" class="btn btn-primary btn-lg">
+            Find Nearby
+          </button>
+        </div>
+      </form>
+
+      <!-- 2. AI Assisted Natural Language Form (Initially hidden or toggleable) -->
+      <div id="aiSearchContainer" style="display: none; padding-top: 0.5rem;">
+        <form id="aiSearchForm">
+          <div class="search-form-row">
+            <input 
+              type="text" 
+              id="aiSearchInput" 
+              class="search-input-field" 
+              placeholder="e.g. cheap 1 kg rice near me, organic milk under $5, sony earbuds in stock..." 
+              aria-label="AI Search input"
+            >
+            <button type="submit" class="btn btn-primary btn-lg">
+              ✨ Ask AI Search
+            </button>
+          </div>
+        </form>
+
+        <!-- Prompt Suggestions -->
+        <div style="margin-top: 0.75rem; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+          <span style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Try Sample Queries:</span>
+          <button type="button" class="btn btn-outline btn-sm ai-sample-prompt" data-prompt="cheap 1 kg rice near me">
+            cheap 1 kg rice near me
+          </button>
+          <button type="button" class="btn btn-outline btn-sm ai-sample-prompt" data-prompt="organic milk under $5">
+            organic milk under $5
+          </button>
+          <button type="button" class="btn btn-outline btn-sm ai-sample-prompt" data-prompt="sony wireless earbuds in stock">
+            sony wireless earbuds in stock
+          </button>
+          <button type="button" class="btn btn-outline btn-sm ai-sample-prompt" data-prompt="apple">
+            apple (ambiguity test)
+          </button>
+        </div>
+
+        <!-- Dynamic AI Feedback & Breakdown Area -->
+        <div id="aiFeedbackArea" style="margin-top: 1rem;"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Main Container Content -->
+<div class="container">
+
+  <!-- Category Quick Browse Pills -->
+  <div style="margin-bottom: 2.5rem;">
+    <h3 style="font-size: 1.125rem; margin-bottom: 0.875rem;">Browse by Category</h3>
+    <div class="category-pills">
+      <a href="{{ url_for('customer.search') }}" class="category-pill active">
+        <span>All Items</span>
+      </a>
+      {% for cat in categories %}
+        <a href="{{ url_for('customer.search', category=cat) }}" class="category-pill">
+          <span>{{ cat }}</span>
+        </a>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Featured Local Shops Section -->
+  <section style="margin-bottom: 3.5rem;">
+    <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 1.25rem;">
+      <div>
+        <h2 style="font-size: 1.5rem;">Nearby Local Shops</h2>
+        <p style="font-size: 0.9375rem;">Explore verified neighborhood stores participating in local inventory sharing.</p>
+      </div>
+      <a href="{{ url_for('customer.search') }}" class="btn btn-outline btn-sm">
+        Browse All Products &rarr;
+      </a>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.5rem;">
+      {% for shop in shops %}
+        <div class="card card-hover" style="display: flex; flex-direction: column;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem;">
+            <span class="badge badge-demo">Demo Shop</span>
+            {% if shop.hours_info.is_open %}
+              <span class="badge badge-open">Open Now</span>
+            {% else %}
+              <span class="badge badge-closed">Closed</span>
+            {% endif %}
+          </div>
+
+          <h3 style="font-size: 1.2rem; margin-bottom: 0.35rem;">
+            <a href="{{ url_for('customer.shop_details', slug=shop.slug) }}">{{ shop.name }}</a>
+          </h3>
+          <span style="font-size: 0.8125rem; font-weight: 600; color: var(--primary); margin-bottom: 0.5rem; display: block;">
+            {{ shop.category }}
+          </span>
+
+          <p style="font-size: 0.875rem; color: var(--text-sub); margin-bottom: 1rem; flex: 1;">
+            {{ shop.description }}
+          </p>
+
+          <div style="background: var(--bg); padding: 0.75rem; border-radius: var(--radius-sm); font-size: 0.8125rem; margin-bottom: 1rem;">
+            <div style="font-weight: 600; color: var(--text-main); margin-bottom: 0.25rem;">
+              📍 {{ shop.address }}, {{ shop.city }}
+            </div>
+            <div style="color: var(--text-muted); display: flex; justify-content: space-between;">
+              <span>{{ shop.distance_text or "Distance estimated" }}</span>
+              <span>📞 {{ shop.phone or "Available" }}</span>
+            </div>
+          </div>
+
+          <a href="{{ url_for('customer.shop_details', slug=shop.slug) }}" class="btn btn-outline" style="width: 100%;">
+            View Store Inventory &rarr;
+          </a>
+        </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <!-- Platform Trust & Features -->
+  <section style="background: #fff; border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 2rem; margin-bottom: 2rem;">
+    <h3 style="font-size: 1.25rem; margin-bottom: 1.25rem; text-align: center;">Trustworthy Local Shopping</h3>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.5rem;">
+      <div>
+        <div style="font-size: 1.75rem; margin-bottom: 0.5rem;">🛡️</div>
+        <h4 style="font-size: 1rem; margin-bottom: 0.35rem;">Verified Real Stock</h4>
+        <p style="font-size: 0.875rem;">
+          We never guess or invent stock levels. Stock counts reflect actual merchant inputs with transparent last-updated timestamps.
+        </p>
+      </div>
+
+      <div>
+        <div style="font-size: 1.75rem; margin-bottom: 0.5rem;">🏷️</div>
+        <h4 style="font-size: 1rem; margin-bottom: 0.35rem;">Live Price Comparison</h4>
+        <p style="font-size: 0.875rem;">
+          Compare exact prices across local independent stores in your neighborhood to support local business and save money.
+        </p>
+      </div>
+
+      <div>
+        <div style="font-size: 1.75rem; margin-bottom: 0.5rem;">🤖</div>
+        <h4 style="font-size: 1rem; margin-bottom: 0.35rem;">Smart AI-Powered Search</h4>
+        <p style="font-size: 0.875rem;">
+          Search using natural questions like <em>"cheap 1 kg rice near me"</em>. Our interpreter parses your intent without hallucinating.
+        </p>
+      </div>
+
+      <div>
+        <div style="font-size: 1.75rem; margin-bottom: 0.5rem;">🏪</div>
+        <h4 style="font-size: 1rem; margin-bottom: 0.35rem;">For Shop Owners</h4>
+        <p style="font-size: 0.875rem;">
+          Manage your own catalog easily, upload inventory via CSV, and alert local shoppers whenever items are in stock.
+        </p>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/search.js') }}"></script>
+<script src="{{ url_for('static', filename='js/ai_search.js') }}"></script>
+<script>
+  // Tab switching between Standard Search and AI Search
+  const tabStandard = document.getElementById("tabStandard");
+  const tabAi = document.getElementById("tabAi");
+  const standardForm = document.getElementById("standardSearchForm");
+  const aiContainer = document.getElementById("aiSearchContainer");
+
+  tabStandard.addEventListener("click", () => {
+    tabStandard.classList.add("active");
+    tabAi.classList.remove("active");
+    standardForm.style.display = "block";
+    aiContainer.style.display = "none";
+  });
+
+  tabAi.addEventListener("click", () => {
+    tabAi.classList.add("active");
+    tabStandard.classList.remove("active");
+    standardForm.style.display = "none";
+    aiContainer.style.display = "block";
+    document.getElementById("aiSearchInput").focus();
+  });
+</script>
+{% endblock %}

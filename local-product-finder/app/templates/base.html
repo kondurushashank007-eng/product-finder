@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}{{ APP_NAME }} - Discover Local Products & Compare Prices{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+
+  <!-- Top Navigation Bar -->
+  <header class="navbar">
+    <div class="container nav-container">
+      <a href="{{ url_for('customer.home') }}" class="brand-link" aria-label="Local Product Finder Home">
+        <span class="brand-icon" aria-hidden="true">📍</span>
+        <span>Local Product Finder</span>
+      </a>
+
+      <!-- Location Pill -->
+      <button type="button" class="nav-location-pill" id="navLocationBtn" title="Change your search location">
+        <span aria-hidden="true">🗺️</span>
+        <span id="navLocationText">Near {{ location_name or DEFAULT_CITY }}</span>
+        <span style="font-size: 0.75rem;">▼</span>
+      </button>
+
+      <!-- Desktop Links -->
+      <ul class="nav-links" id="navLinks">
+        <li><a href="{{ url_for('customer.search') }}" class="nav-link">Search Products</a></li>
+        <li><a href="{{ url_for('customer.about') }}" class="nav-link">About</a></li>
+        <li><a href="{{ url_for('customer.contact') }}" class="nav-link">Contact</a></li>
+
+        {% if g.user %}
+          <li>
+            <a href="{{ url_for('dashboard.index') }}" class="nav-btn nav-btn-primary">
+              <span>🏪 Shop Dashboard</span>
+            </a>
+          </li>
+          <li>
+            <a href="{{ url_for('auth.logout') }}" class="nav-link" style="color: var(--danger-text);">Sign Out</a>
+          </li>
+        {% else %}
+          <li>
+            <a href="{{ url_for('auth.login') }}" class="nav-btn nav-btn-outline">
+              <span>Shop Owner Sign In</span>
+            </a>
+          </li>
+          <li>
+            <a href="{{ url_for('auth.register') }}" class="nav-btn nav-btn-primary">
+              <span>Register Shop</span>
+            </a>
+          </li>
+        {% endif %}
+      </ul>
+
+      <!-- Mobile Menu Toggle -->
+      <button type="button" class="mobile-toggle" id="mobileToggle" aria-label="Toggle navigation menu">
+        ☰
+      </button>
+    </div>
+  </header>
+
+  <!-- Location Modal Dialog -->
+  <div class="modal-overlay" id="locationModal" role="dialog" aria-modal="true" aria-labelledby="locationModalTitle">
+    <div class="modal-content">
+      <button type="button" class="modal-close" id="closeLocationModal" aria-label="Close modal">&times;</button>
+      <h3 id="locationModalTitle" style="margin-bottom: 0.5rem;">Select Your Location</h3>
+      <p style="font-size: 0.875rem; margin-bottom: 1.25rem;">
+        We use your location to calculate real distances to nearby shops.
+      </p>
+
+      <div id="geoStatus" style="display: none;"></div>
+
+      <button type="button" class="btn btn-primary" id="useGeoBtn" style="width: 100%; margin-bottom: 1.25rem;">
+        📍 Use Current Device Location
+      </button>
+
+      <div style="text-align: center; margin-bottom: 1rem; font-size: 0.8125rem; color: var(--text-muted); position: relative;">
+        <span style="background: #fff; padding: 0 0.5rem; position: relative; z-index: 1;">OR TYPE NEIGHBORHOOD</span>
+        <hr style="position: absolute; top: 50%; left: 0; width: 100%; border: none; border-top: 1px solid var(--border); margin: 0;">
+      </div>
+
+      <form id="manualLocationForm">
+        <div class="form-group">
+          <label class="form-label" for="manualAddressInput">City, Neighborhood, or Zip</label>
+          <input type="text" id="manualAddressInput" class="form-control" placeholder="e.g. Castro, Mission, Market St, or 94114">
+        </div>
+        <button type="submit" class="btn btn-secondary" style="width: 100%;">
+          Set Location
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Flash Alerts -->
+  <div class="container flash-container">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }}" role="alert">
+            <span>{{ message }}</span>
+            <button type="button" class="alert-close" aria-label="Dismiss alert">&times;</button>
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+  </div>
+
+  <!-- Main Body Content -->
+  <main class="main-content">
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- Global Footer -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div>
+          <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem;">
+            <span class="brand-icon" style="width: 1.75rem; height: 1.75rem; font-size: 0.9rem;">📍</span>
+            <span style="font-weight: 800; color: var(--primary-dark); font-size: 1.125rem;">{{ APP_NAME }}</span>
+          </div>
+          <p style="font-size: 0.875rem; margin-bottom: 0.75rem;">
+            Connecting conscious consumers directly with nearby independent retailers. Real stock, genuine prices, and zero invented data.
+          </p>
+          <span class="badge badge-demo">Demo Mode Active</span>
+        </div>
+
+        <div>
+          <h4 style="font-size: 0.9375rem; margin-bottom: 0.75rem;">For Shoppers</h4>
+          <ul style="list-style: none; font-size: 0.875rem; display: flex; flex-direction: column; gap: 0.4rem;">
+            <li><a href="{{ url_for('customer.search') }}">Search Products</a></li>
+            <li><a href="{{ url_for('customer.search', in_stock='1') }}">In-Stock Nearby</a></li>
+            <li><a href="{{ url_for('customer.about') }}">How It Works</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h4 style="font-size: 0.9375rem; margin-bottom: 0.75rem;">For Shop Owners</h4>
+          <ul style="list-style: none; font-size: 0.875rem; display: flex; flex-direction: column; gap: 0.4rem;">
+            <li><a href="{{ url_for('auth.login') }}">Owner Sign In</a></li>
+            <li><a href="{{ url_for('auth.register') }}">Register Your Store</a></li>
+            <li><a href="{{ url_for('customer.contact') }}">Merchant Onboarding</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h4 style="font-size: 0.9375rem; margin-bottom: 0.75rem;">Platform</h4>
+          <ul style="list-style: none; font-size: 0.875rem; display: flex; flex-direction: column; gap: 0.4rem;">
+            <li><a href="{{ url_for('customer.about') }}">Data Integrity Policy</a></li>
+            <li><a href="{{ url_for('customer.contact') }}">Help & Support</a></li>
+            <li><span style="color: var(--text-muted); font-size: 0.8125rem;">Currency: {{ CURRENCY_SYMBOL }}</span></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="footer-bottom">
+        <span>&copy; 2026 Local Product Finder MVP. Built for reliable local commerce.</span>
+        <span>All demo listings marked clearly with <span class="badge badge-demo" style="font-size: 0.6875rem;">Demo Data</span></span>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Scripts -->
+  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>
